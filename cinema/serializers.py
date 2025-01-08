@@ -1,6 +1,16 @@
+from django.db import transaction
 from rest_framework import serializers
+from rest_framework.relations import PrimaryKeyRelatedField
 
-from cinema.models import Genre, Actor, CinemaHall, Movie, MovieSession
+from cinema.models import (
+    Genre,
+    Actor,
+    CinemaHall,
+    Movie,
+    MovieSession,
+    Order,
+    Ticket,
+    )
 
 
 class GenreSerializer(serializers.ModelSerializer):
@@ -78,3 +88,46 @@ class MovieSessionDetailSerializer(MovieSessionSerializer):
     class Meta:
         model = MovieSession
         fields = ("id", "show_time", "movie", "cinema_hall")
+
+
+class TicketSerializer(serializers.ModelSerializer):
+    movie_session = PrimaryKeyRelatedField(
+        queryset=MovieSession.objects.all()
+    )
+
+    class Meta:
+        model = Ticket
+        fields = ("id", "row", "seat", "movie_session")
+
+class TicketDetailSerializer(TicketSerializer):
+    movie_session = MovieSessionListSerializer(many=False, read_only=True)
+
+    def validate(self, data):
+        data = super(TicketSerializer, self).validate(data)
+        ticket = Ticket(
+            movie_session=data.get["movie_session"],
+            row=data.get["row"],
+            seat=data.get["seat"],
+        )
+        ticket.full_clean()
+        return data
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    tickets = TicketSerializer(many=True, read_only=False, allow_empty=False)
+
+    class Meta:
+        model = Order
+        fields = ["id", "tickets", "created_at"]
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            tickets_data = validated_data.pop("tickets")
+            order = Order.objects.create(**validated_data)
+            for ticket_data in tickets_data:
+                Ticket.objects.create(order=order, **ticket_data)
+            return order
+
+
+class OrderDetailSerializer(OrderSerializer):
+    tickets = TicketDetailSerializer(many=True, read_only=True)
