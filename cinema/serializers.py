@@ -106,9 +106,9 @@ class TicketDetailSerializer(TicketSerializer):
     def validate(self, data):
         data = super(TicketSerializer, self).validate(data)
         ticket = Ticket(
-            movie_session=data.get["movie_session"],
-            row=data.get["row"],
-            seat=data.get["seat"],
+            movie_session=data.get("movie_session"),
+            row=data.get("row"),
+            seat=data.get("seat"),
         )
         ticket.full_clean()
         return data
