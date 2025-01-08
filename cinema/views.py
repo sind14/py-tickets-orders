@@ -105,9 +105,9 @@ class MovieSessionViewSet(viewsets.ModelViewSet):
                 .select_related("cinema_hall")
                 .annotate(
                     tickets_available=(
-                            F("cinema_hall__rows")
-                            * F("cinema_hall__seats_in_row")
-                            - Count("tickets")
+                            F("cinema_hall__rows") *
+                            F("cinema_hall__seats_in_row") -
+                            Count("tickets")
                     )
                 )
             ).order_by("id")
@@ -138,6 +138,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
 
 class TicketViewSet(viewsets.ModelViewSet):
     queryset = Ticket.objects.all()
