@@ -109,7 +109,9 @@ class MovieSessionViewSet(viewsets.ModelViewSet):
                 parsed_date = datetime.strptime(date, "%Y-%m-%d").date()
                 queryset = queryset.filter(show_time__date=parsed_date)
             except ValueError:
-                raise ValidationError({"date": "Invalid date format. Use YYYY-MM-DD."})
+                raise ValidationError(
+                    {"date": "Invalid date format. Use YYYY-MM-DD."}
+                )
 
         if self.action in ["retrieve", "list"]:
             queryset = queryset.prefetch_related("movie")
