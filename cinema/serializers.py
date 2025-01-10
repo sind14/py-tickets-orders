@@ -69,6 +69,7 @@ class MovieSessionListSerializer(MovieSessionSerializer):
     cinema_hall_capacity = serializers.IntegerField(
         source="cinema_hall.capacity", read_only=True
     )
+    tickets_available = serializers.SerializerMethodField()
 
     class Meta:
         model = MovieSession
@@ -78,16 +79,32 @@ class MovieSessionListSerializer(MovieSessionSerializer):
             "movie_title",
             "cinema_hall_name",
             "cinema_hall_capacity",
+            "tickets_available"
         )
+
+    def get_tickets_available(self, obj):
+        tickets_sold = obj.tickets.count()
+        return obj.cinema_hall.capacity - tickets_sold
+
+
+class TicketRowSeatSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ticket
+        fields = ("row", "seat")
 
 
 class MovieSessionDetailSerializer(MovieSessionSerializer):
     movie = MovieListSerializer(many=False, read_only=True)
     cinema_hall = CinemaHallSerializer(many=False, read_only=True)
+    taken_places = TicketRowSeatSerializer(
+        many=True,
+        read_only=True,
+        source="tickets"
+    )
 
     class Meta:
         model = MovieSession
-        fields = ("id", "show_time", "movie", "cinema_hall")
+        fields = ("id", "show_time", "movie", "cinema_hall", "taken_places")
 
 
 class TicketSerializer(serializers.ModelSerializer):
@@ -99,19 +116,19 @@ class TicketSerializer(serializers.ModelSerializer):
         model = Ticket
         fields = ("id", "row", "seat", "movie_session")
 
+    def validate(self, attrs):
+        movie_session = attrs["movie_session"]
+        seats_in_row = movie_session.cinema_hall.seats_in_row
+        if not (1 <= attrs["seat"] <= seats_in_row):
+            raise serializers.ValidationError(
+                {
+                    "seat": f"seats must be between 1 and {seats_in_row}"
+                }
+            )
+
 
 class TicketDetailSerializer(TicketSerializer):
     movie_session = MovieSessionListSerializer(many=False, read_only=True)
-
-    def validate(self, data):
-        data = super(TicketSerializer, self).validate(data)
-        ticket = Ticket(
-            movie_session=data.get("movie_session"),
-            row=data.get("row"),
-            seat=data.get("seat"),
-        )
-        ticket.full_clean()
-        return data
 
 
 class OrderSerializer(serializers.ModelSerializer):
